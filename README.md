@@ -1,8 +1,8 @@
 # EEG Dementias Model Lab
 
-Interactive browser app based on `/Users/rh/Documents/compneur/EEG-Dementias`.
+Interactive browser app inspired by [carlosmig/EEG-Dementias](https://github.com/carlosmig/EEG-Dementias), a research codebase for EEG simulations using modified Jansen-Rit neural mass models in aging and dementia.
 
-The app keeps the main mechanisms from the repository's modified Jansen-Rit model:
+This app is a teaching-oriented, browser-native approximation. It keeps the main mechanisms from the original repository's modified Jansen-Rit model:
 
 - alpha and gamma neural-mass subpopulations
 - structural long-range coupling
