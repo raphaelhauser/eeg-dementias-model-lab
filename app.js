@@ -11,7 +11,7 @@ const MODEL = {
   r2: 0.56,
   dt: 0.001,
   downsamp: 4,
-  burnIn: 1.5,
+  burnIn: 2.5,
 };
 
 MODEL.C1 = MODEL.C;
@@ -45,6 +45,7 @@ const PRESETS = {
     coupling: 0.32,
     integrity: 0.92,
     nodes: 10,
+    topology: "reduced-sc",
     drive: 220,
     alpha: 0.56,
     noise: 0.72,
@@ -53,45 +54,82 @@ const PRESETS = {
     tau: 2,
     duration: 7,
     seed: 9,
+    editNetwork: false,
   },
-  hypo: {
-    coupling: 0.24,
-    integrity: 0.74,
+  theta: {
+    coupling: 0.68,
+    integrity: 0.92,
     nodes: 10,
-    drive: 188,
-    alpha: 0.68,
-    noise: 0.42,
-    plasticity: true,
-    target: 2.2,
-    tau: 4.6,
-    duration: 7,
-    seed: 13,
-  },
-  disconnected: {
-    coupling: 0.36,
-    integrity: 0.42,
-    nodes: 12,
-    drive: 215,
-    alpha: 0.6,
-    noise: 0.82,
+    topology: "small-world",
+    drive: 205,
+    alpha: 0.88,
+    noise: 0.55,
     plasticity: true,
     target: 2.5,
-    tau: 2.8,
-    duration: 8,
-    seed: 31,
+    tau: 2.4,
+    duration: 7,
+    seed: 9,
+    editNetwork: false,
   },
-  hyper: {
-    coupling: 0.68,
-    integrity: 1.05,
-    nodes: 10,
-    drive: 245,
-    alpha: 0.38,
+  alphaHub: {
+    coupling: 0.36,
+    integrity: 0.92,
+    nodes: 12,
+    topology: "hub",
+    drive: 205,
+    alpha: 0.88,
     noise: 0.55,
+    plasticity: true,
+    target: 2.5,
+    tau: 2.4,
+    duration: 7,
+    seed: 9,
+    editNetwork: false,
+  },
+  gammaLocal: {
+    coupling: 0,
+    integrity: 0.92,
+    nodes: 12,
+    topology: "hub",
+    drive: 205,
+    alpha: 0.55,
+    noise: 0.25,
+    plasticity: true,
+    target: 2.5,
+    tau: 2.4,
+    duration: 7,
+    seed: 9,
+    editNetwork: false,
+  },
+  fragmented: {
+    coupling: 0.12,
+    integrity: 0.35,
+    nodes: 12,
+    topology: "split",
+    drive: 180,
+    alpha: 0.55,
+    noise: 1.2,
+    plasticity: true,
+    target: 2.5,
+    tau: 2.4,
+    duration: 7,
+    seed: 3,
+    editNetwork: false,
+  },
+  overdrive: {
+    coupling: 0.85,
+    integrity: 1.1,
+    nodes: 12,
+    topology: "modular",
+    drive: 290,
+    alpha: 0.22,
+    noise: 0.25,
     plasticity: false,
     target: 2.5,
-    tau: 1.5,
-    duration: 6,
-    seed: 4,
+    tau: 2.4,
+    duration: 7,
+    seed: 9,
+    editNetwork: false,
   },
 };
 
@@ -202,6 +240,8 @@ function getParams() {
 }
 
 function setParams(params) {
+  if (params.topology && params.topology !== "custom") customNetwork = null;
+  selectedNode = null;
   Object.entries(params).forEach(([key, value]) => {
     if (key === "plasticity" || key === "editNetwork") fields[key].checked = value;
     else fields[key].value = value;
@@ -361,6 +401,9 @@ function simulate(params) {
   let sample = 0;
 
   for (let step = 1; step <= totalSteps; step += 1) {
+    const effectiveTau = step <= burnSteps
+      ? (step <= burnSteps / 2 ? 0.05 : Math.max(0.1, params.tau / 2))
+      : params.tau;
     for (let node = 0; node < n; node += 1) {
       x0[node] = alpha * y[0][node] + gamma * y[6][node];
       x1[node] = alpha * y[1][node] + gamma * y[7][node];
@@ -395,7 +438,7 @@ function simulate(params) {
         MODEL.A2 * MODEL.a2 * fr[node] - 2 * MODEL.a2 * y[9][node] - MODEL.a2 * MODEL.a2 * y[6][node],
         MODEL.A2 * MODEL.a2 * input - 2 * MODEL.a2 * y[10][node] - MODEL.a2 * MODEL.a2 * y[7][node],
         MODEL.B2 * MODEL.b2 * c4 * sC3 - 2 * MODEL.b2 * y[11][node] - MODEL.b2 * MODEL.b2 * y[8][node],
-        (sC3 * (fr[node] - params.target) * plasticity * Math.max(c4 / MODEL.C, 0)) / params.tau,
+        (sC3 * (fr[node] - params.target) * plasticity * Math.max(c4 / MODEL.C, 0)) / effectiveTau,
       ];
 
       for (let k = 0; k < 13; k += 1) {
@@ -1029,6 +1072,12 @@ function nearestNode(positions, x, y) {
 window.addEventListener("resize", () => {
   if (latest) renderAll(latest);
 });
+
+window.ModelLab = {
+  presets: PRESETS,
+  simulate,
+  presetMatrix,
+};
 
 setParams(PRESETS.balanced);
 rerun(true);

@@ -13,6 +13,19 @@ This app is a teaching-oriented, browser-native approximation. It keeps the main
 
 For browser responsiveness it runs a reduced network size in JavaScript rather than the full 90-region NumPy/Numba simulation.
 
+## Teaching Presets
+
+The built-in presets were selected from a parameter sweep of the interactive model to expose qualitatively different regimes:
+
+- **Balanced**: source-like reduced-SC baseline with moderate beta activity.
+- **Theta sync**: high functional connectivity with theta-dominant synchronization.
+- **Alpha hub**: hub topology with alpha-dominant activity and intermediate FC.
+- **Local gamma**: uncoupled local fast activity with low FC.
+- **Fragmented beta**: split-module topology with low FC and beta activity.
+- **Overdrive**: intentionally unstable/homeostatically unbalanced example that triggers a warning.
+
+These presets are meant for learning and hypothesis-building. They should not be treated as calibrated clinical or subject-level simulations.
+
 ## Run
 
 ```bash
