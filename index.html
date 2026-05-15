@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EEG Dementias Model Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Modified Jansen-Rit network</p>
+          <h1>EEG Dementias Model Lab</h1>
+        </div>
+        <div class="runbar" aria-label="Simulation controls">
+          <button class="icon-button" id="rerunButton" type="button" title="Rerun simulation" aria-label="Rerun simulation">↻</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="control-panel" aria-label="Model parameters">
+          <section class="panel-section">
+            <h2>Preset</h2>
+            <div class="segmented" role="group" aria-label="Presets">
+              <button class="is-active" data-preset="balanced" type="button">Balanced</button>
+              <button data-preset="hypo" type="button">Low drive</button>
+              <button data-preset="disconnected" type="button">Low integrity</button>
+              <button data-preset="hyper" type="button">High coupling</button>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2>Network</h2>
+            <label class="slider-row" for="coupling">
+              <span>Global coupling K</span>
+              <output id="couplingValue"></output>
+            </label>
+            <input id="coupling" type="range" min="0" max="0.9" step="0.01" />
+
+            <label class="slider-row" for="integrity">
+              <span>Structural integrity</span>
+              <output id="integrityValue"></output>
+            </label>
+            <input id="integrity" type="range" min="0.25" max="1.15" step="0.01" />
+
+            <label class="slider-row" for="nodes">
+              <span>Regions</span>
+              <output id="nodesValue"></output>
+            </label>
+            <input id="nodes" type="range" min="4" max="14" step="1" />
+
+            <label class="field-row" for="topology">
+              <span>Network preset</span>
+              <select id="topology">
+                <option value="reduced-sc">Reduced SC</option>
+                <option value="small-world">Small-world</option>
+                <option value="modular">Modular</option>
+                <option value="hub">Hub</option>
+                <option value="split">Split modules</option>
+                <option value="random">Random sparse</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+
+            <label class="switch-row">
+              <span>Edit edges</span>
+              <input id="editNetwork" type="checkbox" />
+            </label>
+
+            <button class="secondary-button" id="resetNetworkButton" type="button">Reset network</button>
+          </section>
+
+          <section class="panel-section">
+            <h2>Local Masses</h2>
+            <label class="slider-row" for="drive">
+              <span>Basal input p</span>
+              <output id="driveValue"></output>
+            </label>
+            <input id="drive" type="range" min="170" max="300" step="1" />
+
+            <label class="slider-row" for="alpha">
+              <span>Alpha fraction</span>
+              <output id="alphaValue"></output>
+            </label>
+            <input id="alpha" type="range" min="0.05" max="0.95" step="0.01" />
+
+            <label class="slider-row" for="noise">
+              <span>Noise σ</span>
+              <output id="noiseValue"></output>
+            </label>
+            <input id="noise" type="range" min="0" max="1.8" step="0.01" />
+          </section>
+
+          <section class="panel-section">
+            <h2>Plasticity</h2>
+            <label class="switch-row">
+              <span>Inhibitory plasticity</span>
+              <input id="plasticity" type="checkbox" />
+            </label>
+
+            <label class="slider-row" for="target">
+              <span>Target firing rate</span>
+              <output id="targetValue"></output>
+            </label>
+            <input id="target" type="range" min="0.8" max="4.8" step="0.1" />
+
+            <label class="slider-row" for="tau">
+              <span>Plasticity τ</span>
+              <output id="tauValue"></output>
+            </label>
+            <input id="tau" type="range" min="0.4" max="8" step="0.1" />
+          </section>
+
+          <section class="panel-section">
+            <h2>Simulation</h2>
+            <label class="slider-row" for="duration">
+              <span>Duration</span>
+              <output id="durationValue"></output>
+            </label>
+            <input id="duration" type="range" min="3" max="12" step="1" />
+
+            <label class="slider-row" for="seed">
+              <span>Seed</span>
+              <output id="seedValue"></output>
+            </label>
+            <input id="seed" type="range" min="0" max="99" step="1" />
+          </section>
+
+          <section class="panel-section model-note">
+            <h2>Teaching Model</h2>
+            <p>Interactive approximation with real reduced structural connectivity, hidden burn-in, Welch-style spectrum, and full Jansen-Rit state variables.</p>
+          </section>
+        </aside>
+
+        <section class="main-stage" aria-label="Simulation output">
+          <div class="metrics-grid" aria-label="Summary metrics">
+            <div class="metric">
+              <span>Dominant rhythm</span>
+              <strong id="dominantMetric">--</strong>
+              <small id="dominantDelta">vs balanced --</small>
+            </div>
+            <div class="metric">
+              <span>Mean FC</span>
+              <strong id="fcMetric">--</strong>
+              <small id="fcDelta">vs balanced --</small>
+            </div>
+            <div class="metric">
+              <span>Firing error</span>
+              <strong id="errorMetric">--</strong>
+              <small id="errorDelta">vs target --</small>
+            </div>
+            <div class="metric">
+              <span>Final inhibition</span>
+              <strong id="inhibitionMetric">--</strong>
+              <small id="inhibitionDelta">vs balanced --</small>
+            </div>
+          </div>
+
+          <div class="view-grid">
+            <article class="view trace-view">
+              <div class="view-heading">
+                <h2>EEG-like activity</h2>
+                <span id="statusText">Ready</span>
+              </div>
+              <canvas id="traceCanvas" width="980" height="360" aria-label="EEG traces"></canvas>
+            </article>
+
+            <article class="view spectrum-view">
+              <div class="view-heading">
+                <h2>Power spectrum</h2>
+                <span>0.5-45 Hz</span>
+              </div>
+              <canvas id="spectrumCanvas" width="560" height="340" aria-label="Power spectrum"></canvas>
+            </article>
+
+            <article class="view network-view">
+              <div class="view-heading">
+                <h2>Structural network</h2>
+                <span id="networkMetric">--</span>
+              </div>
+              <canvas id="networkCanvas" width="560" height="340" aria-label="Structural network"></canvas>
+            </article>
+
+            <article class="view fc-view">
+              <div class="view-heading">
+                <h2>Functional connectivity</h2>
+                <span>EEG correlation</span>
+              </div>
+              <canvas id="fcCanvas" width="360" height="340" aria-label="Functional connectivity matrix"></canvas>
+            </article>
+
+            <article class="view homeostasis-view">
+              <div class="view-heading">
+                <h2>Homeostasis</h2>
+                <span>Firing + C4</span>
+              </div>
+              <canvas id="homeostasisCanvas" width="560" height="270" aria-label="Firing rate and inhibition over time"></canvas>
+            </article>
+
+            <article class="view bands-view">
+              <div class="view-heading">
+                <h2>Band power</h2>
+                <span>Relative share</span>
+              </div>
+              <canvas id="bandsCanvas" width="560" height="270" aria-label="Band power"></canvas>
+            </article>
+
+            <article class="view model-view">
+              <div class="view-heading">
+                <h2>Local circuit</h2>
+                <span>Alpha + gamma masses</span>
+              </div>
+              <canvas id="modelCanvas" width="560" height="270" aria-label="Jansen-Rit circuit"></canvas>
+            </article>
+
+            <article class="view insight-view">
+              <div class="view-heading">
+                <h2>Model response</h2>
+                <span>Current run</span>
+              </div>
+              <div class="insights" aria-label="Model response notes">
+                <p id="rhythmInsight"></p>
+                <p id="couplingInsight"></p>
+                <p id="plasticityInsight"></p>
+              </div>
+              <div class="warnings" id="warningList" aria-label="Run warnings"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
