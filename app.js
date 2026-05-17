@@ -164,6 +164,51 @@ const LESSONS = {
   },
 };
 
+const LEARNING_MISSIONS = [
+  {
+    id: "rhythm",
+    title: "1) Find a clean alpha rhythm",
+    targetLabel: "Load alpha target",
+    target: PRESETS.alphaHub,
+    goal: "Stable run with alpha as the dominant 8-13 Hz band.",
+    coach: "Start with the alpha target, then watch the spectrum: a successful run peaks in alpha without quality warnings.",
+    check: (result) => classifyRun(result).kind !== "unstable" && result.dominantBand.id === "alpha",
+    readout: (result) => `Current: ${result.dominantBand.name} at ${result.dominantFreq.toFixed(0)} Hz`,
+  },
+  {
+    id: "synchrony",
+    title: "2) Make coupling synchronize regions",
+    targetLabel: "Load synchrony target",
+    target: PRESETS.theta,
+    goal: "Mean broadband FC reaches at least 0.45.",
+    coach: "Use stronger long-range coupling and compare the FC matrix: the lesson is that network edges can pull regions into shared activity.",
+    check: (result) => result.meanFc >= 0.45,
+    readout: (result) => `Current: mean FC ${result.meanFc.toFixed(2)}`,
+  },
+  {
+    id: "fragmentation",
+    title: "3) Fragment the network",
+    targetLabel: "Load damage target",
+    target: PRESETS.fragmented,
+    goal: "Mean broadband FC falls below 0.25 after structural damage.",
+    coach: "Lower integrity or use the split network. The FC matrix should lose broad blocks of correlation as structural paths disappear.",
+    check: (result) => result.meanFc < 0.25,
+    readout: (result) => `Current: mean FC ${result.meanFc.toFixed(2)}`,
+  },
+  {
+    id: "homeostasis",
+    title: "4) Rescue firing with plasticity",
+    targetLabel: "Load rescue target",
+    target: PRESETS.balanced,
+    goal: "Plasticity is on, integrity is restored above 80%, and firing error is within +/-0.4 Hz.",
+    coach: "Turn plasticity on and bring firing back near target. The homeostasis plot should show C4 correcting the error, not just hiding it.",
+    check: (result, params) => params.plasticity && params.integrity >= 0.8 && Math.abs(result.firingError) <= 0.4,
+    readout: (result) => `Current: firing error ${result.firingError >= 0 ? "+" : ""}${result.firingError.toFixed(2)} Hz`,
+  },
+];
+
+const learningProgress = new Set();
+
 const fields = {
   coupling: document.getElementById("coupling"),
   integrity: document.getElementById("integrity"),
@@ -190,6 +235,8 @@ const controls = {
   spectrum: document.getElementById("spectrumMetric"),
   undoNetwork: document.getElementById("undoNetworkButton"),
   redoNetwork: document.getElementById("redoNetworkButton"),
+  learningPath: document.getElementById("learningPath"),
+  learningCoach: document.getElementById("learningCoach"),
 };
 
 const outputs = {
@@ -803,6 +850,62 @@ function updateMetrics(result) {
   controls.spectrum.textContent = `High-quality · ${result.fs.toFixed(0)} Hz`;
   updateInsights(result, density);
   updateWarnings(result.warnings);
+  updateLearningPath(result);
+}
+
+function updateLearningPath(result) {
+  if (!controls.learningPath || !controls.learningCoach) return;
+  const params = getParams();
+  const currentIndex = LEARNING_MISSIONS.findIndex((mission) => !learningProgress.has(mission.id));
+  if (currentIndex !== -1 && LEARNING_MISSIONS[currentIndex].check(result, params)) {
+    learningProgress.add(LEARNING_MISSIONS[currentIndex].id);
+  }
+  const nextIndex = LEARNING_MISSIONS.findIndex((mission) => !learningProgress.has(mission.id));
+  controls.learningPath.innerHTML = "";
+  LEARNING_MISSIONS.forEach((mission, index) => {
+    const li = document.createElement("li");
+    const done = learningProgress.has(mission.id);
+    const active = index === nextIndex;
+    li.className = `${done ? "is-done" : ""}${active ? " is-active" : ""}`.trim();
+
+    const status = document.createElement("span");
+    status.className = "mission-status";
+    status.setAttribute("aria-hidden", "true");
+    status.textContent = done ? "✓" : active ? "→" : "•";
+
+    const body = document.createElement("span");
+    body.className = "mission-body";
+
+    const title = document.createElement("strong");
+    title.textContent = mission.title;
+
+    const goal = document.createElement("small");
+    goal.textContent = mission.goal;
+
+    const readout = document.createElement("small");
+    readout.className = "mission-readout";
+    readout.textContent = mission.readout(result);
+
+    body.append(title, goal, readout);
+    li.append(status, body);
+
+    if (active) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "secondary-button mission-target-button";
+      button.textContent = mission.targetLabel;
+      button.addEventListener("click", () => {
+        applyScenario(mission.target, null);
+        setInspector(`Loaded tour target: ${mission.goal}`);
+      });
+      li.appendChild(button);
+    }
+
+    controls.learningPath.appendChild(li);
+  });
+  controls.learningCoach.textContent = nextIndex < LEARNING_MISSIONS.length && nextIndex !== -1
+    ? `Coach: ${LEARNING_MISSIONS[nextIndex].coach}`
+    : "Coach: You reached 100. Explain rhythm, coupling, fragmentation, and plasticity from the plots to lock it in.";
 }
 
 function getFcStat(result, band) {
@@ -1329,6 +1432,7 @@ document.getElementById("resetAllButton").addEventListener("click", () => {
   selectedNode = null;
   undoStack = [];
   redoStack = [];
+  learningProgress.clear();
   updateNetworkHistoryButtons();
   baselineResult = null;
   baselineName = "Balanced baseline";
@@ -1336,7 +1440,13 @@ document.getElementById("resetAllButton").addEventListener("click", () => {
   setActivePreset("balanced");
   setParams(PRESETS.balanced);
   rerun(true);
-  setInspector("Reset all parameters, comparison state, and network edits.");
+  setInspector("Reset all parameters, comparison state, network edits, and tour progress.");
+});
+
+document.getElementById("resetLearningButton").addEventListener("click", () => {
+  learningProgress.clear();
+  if (latest) updateLearningPath(latest);
+  setInspector("Learning tour reset. Start again by finding a clean alpha rhythm.");
 });
 
 document.getElementById("resetNetworkButton").addEventListener("click", () => {

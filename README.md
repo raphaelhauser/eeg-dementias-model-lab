@@ -16,6 +16,7 @@ For browser responsiveness it runs a reduced network size in JavaScript rather t
 ## Learning Features
 
 - Guided lessons compare paired model states for coupling, plasticity, network damage, and rhythm shifts.
+- A **0 → 100 Learning Path** turns exploration into four progressive missions (rhythm, coupling, damage, homeostasis) with live auto-checks, coaching prompts, and one-click target states that make every step achievable.
 - A pinned baseline overlays the spectrum and band-power plots so parameter changes can be read as contrasts.
 - Run-quality checks flag parameter regimes that leave the intended teaching range.
 - Plot inspectors explain clicked spectrum points, power bands, FC cells, structural nodes, traces, and homeostasis trajectories.
@@ -34,6 +35,17 @@ The built-in presets were selected from a parameter sweep of the interactive mod
 - **Overdrive**: intentionally unstable/homeostatically unbalanced example that triggers a warning.
 
 These presets are meant for learning and hypothesis-building. They should not be treated as calibrated clinical or subject-level simulations.
+
+## 0 → 100 Teaching Flow (recommended)
+
+Use the Learning Path panel as a structured sequence:
+
+1. **Find a clean alpha rhythm**: load the alpha target or tune into stable alpha-dominant activity.
+2. **Make coupling synchronize regions**: load the synchrony target or increase coupling until FC rises above 0.45.
+3. **Fragment the network**: load the damage target or reduce integrity until FC falls below 0.25.
+4. **Rescue firing with plasticity**: load the rescue target or restore integrity, enable plasticity, and bring firing error within +/-0.4 Hz.
+
+This progression is designed to move a learner from intuition ("what changes?") to mechanism ("why did it change?") using immediate feedback from metrics and plots.
 
 ## Scientific Scope
 
