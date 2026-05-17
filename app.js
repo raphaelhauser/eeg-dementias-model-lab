@@ -133,12 +133,50 @@ const PRESETS = {
   },
 };
 
+const FIDELITY = {
+  fast: { label: "Fast preview", burnIn: 1.2, downsamp: 6 },
+  lesson: { label: "Lesson", burnIn: MODEL.burnIn, downsamp: MODEL.downsamp },
+  deep: { label: "High confidence", burnIn: 4, downsamp: 3 },
+};
+
+const BAND_SPECS = [
+  { key: "δ", id: "delta", name: "delta", min: 1, max: 4, color: "#2c6fb7" },
+  { key: "θ", id: "theta", name: "theta", min: 4, max: 8, color: "#167f76" },
+  { key: "α", id: "alpha", name: "alpha", min: 8, max: 13, color: "#c58a20" },
+  { key: "β", id: "beta", name: "beta", min: 13, max: 30, color: "#d95b43" },
+  { key: "γ", id: "gamma", name: "gamma", min: 30, max: 45, color: "#6f63c6" },
+];
+
+const LESSONS = {
+  coupling: {
+    note: "Compare the Balanced run with Theta sync to see how stronger small-world coupling increases FC and slows the dominant rhythm.",
+    start: PRESETS.balanced,
+    contrast: PRESETS.theta,
+  },
+  plasticity: {
+    note: "Compare Overdrive with the same settings but plasticity enabled to see how C4 tries to rescue firing error.",
+    start: PRESETS.overdrive,
+    contrast: { ...PRESETS.overdrive, plasticity: true, tau: 1.2 },
+  },
+  network: {
+    note: "Compare Alpha hub with Fragmented beta to see how hubs and split modules change FC without changing the local equations.",
+    start: PRESETS.alphaHub,
+    contrast: PRESETS.fragmented,
+  },
+  rhythm: {
+    note: "Compare Theta sync with Local gamma to see how alpha/gamma balance and coupling separate global slow synchrony from local fast activity.",
+    start: PRESETS.theta,
+    contrast: PRESETS.gammaLocal,
+  },
+};
+
 const fields = {
   coupling: document.getElementById("coupling"),
   integrity: document.getElementById("integrity"),
   nodes: document.getElementById("nodes"),
   topology: document.getElementById("topology"),
   editNetwork: document.getElementById("editNetwork"),
+  fidelity: document.getElementById("fidelity"),
   drive: document.getElementById("drive"),
   alpha: document.getElementById("alpha"),
   noise: document.getElementById("noise"),
@@ -147,6 +185,18 @@ const fields = {
   tau: document.getElementById("tau"),
   duration: document.getElementById("duration"),
   seed: document.getElementById("seed"),
+};
+
+const controls = {
+  fcBand: document.getElementById("fcBand"),
+  lessonSelect: document.getElementById("lessonSelect"),
+  lessonNote: document.getElementById("lessonNote"),
+  importStateFile: document.getElementById("importStateFile"),
+  inspector: document.getElementById("inspectorText"),
+  baseline: document.getElementById("baselineMetric"),
+  spectrum: document.getElementById("spectrumMetric"),
+  undoNetwork: document.getElementById("undoNetworkButton"),
+  redoNetwork: document.getElementById("redoNetworkButton"),
 };
 
 const outputs = {
@@ -181,10 +231,14 @@ const insights = {
 const warningsEl = document.getElementById("warningList");
 
 const metrics = {
+  quality: document.getElementById("qualityMetric"),
+  qualityDelta: document.getElementById("qualityDelta"),
   dominant: document.getElementById("dominantMetric"),
   fc: document.getElementById("fcMetric"),
   error: document.getElementById("errorMetric"),
   inhibition: document.getElementById("inhibitionMetric"),
+  alphaEnvelope: document.getElementById("alphaEnvelopeMetric"),
+  alphaEnvelopeDelta: document.getElementById("alphaEnvelopeDelta"),
   dominantDelta: document.getElementById("dominantDelta"),
   fcDelta: document.getElementById("fcDelta"),
   errorDelta: document.getElementById("errorDelta"),
@@ -196,8 +250,11 @@ const metrics = {
 let latest = null;
 let debounce = 0;
 let baselineResult = null;
+let baselineName = "Balanced baseline";
 let customNetwork = null;
 let selectedNode = null;
+let undoStack = [];
+let redoStack = [];
 
 function seededRandom(seed) {
   let state = (seed >>> 0) + 0x6d2b79f5;
@@ -228,6 +285,7 @@ function getParams() {
     nodes: Number(fields.nodes.value),
     topology: fields.topology.value,
     editNetwork: fields.editNetwork.checked,
+    fidelity: fields.fidelity.value,
     drive: Number(fields.drive.value),
     alpha: Number(fields.alpha.value),
     noise: Number(fields.noise.value),
@@ -243,9 +301,11 @@ function setParams(params) {
   if (params.topology && params.topology !== "custom") customNetwork = null;
   selectedNode = null;
   Object.entries(params).forEach(([key, value]) => {
+    if (!fields[key]) return;
     if (key === "plasticity" || key === "editNetwork") fields[key].checked = value;
     else fields[key].value = value;
   });
+  if (!params.fidelity) fields.fidelity.value = "lesson";
   updateOutputs();
 }
 
@@ -361,6 +421,7 @@ function setCustomNetworkFromCurrent() {
 
 function toggleCustomEdge(a, b) {
   if (a === b) return;
+  pushNetworkUndo();
   setCustomNetworkFromCurrent();
   const n = Number(fields.nodes.value);
   customNetwork = resizeMatrix(customNetwork, n);
@@ -370,15 +431,44 @@ function toggleCustomEdge(a, b) {
   customNetwork[b][a] = next;
 }
 
+function cloneMatrix(matrix) {
+  return matrix ? matrix.map((row) => row.slice()) : null;
+}
+
+function pushNetworkUndo() {
+  const params = getParams();
+  const matrix = customNetwork || latest?.network?.rawMatrix || presetMatrix(params.nodes, params.topology);
+  undoStack.push(cloneMatrix(resizeMatrix(matrix, params.nodes)));
+  if (undoStack.length > 20) undoStack.shift();
+  redoStack = [];
+  updateNetworkHistoryButtons();
+}
+
+function restoreNetwork(matrix) {
+  if (!matrix) return;
+  customNetwork = cloneMatrix(matrix);
+  fields.topology.value = "custom";
+  selectedNode = null;
+  rerun(true);
+  updateNetworkHistoryButtons();
+}
+
+function updateNetworkHistoryButtons() {
+  controls.undoNetwork.disabled = undoStack.length === 0;
+  controls.redoNetwork.disabled = redoStack.length === 0;
+}
+
 function simulate(params) {
   const n = params.nodes;
   const rand = seededRandom(params.seed);
   const network = buildNetwork(n, params.integrity, params.topology);
-  const sampleEvery = MODEL.downsamp;
+  const fidelity = FIDELITY[params.fidelity] || FIDELITY.lesson;
+  const sampleEvery = fidelity.downsamp;
   const steps = Math.max(1, Math.floor(params.duration / MODEL.dt));
-  const burnSteps = Math.floor(MODEL.burnIn / MODEL.dt);
+  const burnSteps = Math.floor(fidelity.burnIn / MODEL.dt);
   const totalSteps = burnSteps + steps;
   const samples = Math.floor(steps / sampleEvery);
+  const runParams = { ...params, fidelity: params.fidelity || "lesson", sampleEvery, burnIn: fidelity.burnIn };
   const y = Array.from({ length: 13 }, () => Array(n).fill(0));
   const init = [0.131, 0.171, 0.343, 0.21, 3.07, 2.96, 0.131, 0.171, 0.343, 0.21, 3.07, 2.96, MODEL.C4_0];
   for (let k = 0; k < 13; k += 1) {
@@ -468,12 +558,12 @@ function simulate(params) {
     }
   }
 
-  const analysis = analyzeSignals(eeg, meanSignal, firingHistory, c4History, params);
-  return { params, network, eeg, meanSignal, firingHistory, c4History, ...analysis };
+  const analysis = analyzeSignals(eeg, meanSignal, firingHistory, c4History, runParams);
+  return { params: runParams, network, eeg, meanSignal, firingHistory, c4History, ...analysis };
 }
 
 function analyzeSignals(eeg, meanSignal, firingHistory, c4History, params) {
-  const fs = 1 / (MODEL.dt * MODEL.downsamp);
+  const fs = 1 / (MODEL.dt * params.sampleEvery);
   const start = Math.floor(meanSignal.length * 0.2);
   const centered = Array.from(meanSignal.slice(start));
   const avg = centered.reduce((sum, value) => sum + value, 0) / Math.max(1, centered.length);
@@ -481,13 +571,7 @@ function analyzeSignals(eeg, meanSignal, firingHistory, c4History, params) {
 
   const spectrum = welchSpectrum(centered, fs);
 
-  const bands = [
-    { key: "δ", name: "delta", min: 1, max: 4, power: 0, color: "#2c6fb7" },
-    { key: "θ", name: "theta", min: 4, max: 8, power: 0, color: "#167f76" },
-    { key: "α", name: "alpha", min: 8, max: 13, power: 0, color: "#c58a20" },
-    { key: "β", name: "beta", min: 13, max: 30, power: 0, color: "#d95b43" },
-    { key: "γ", name: "gamma", min: 30, max: 45, power: 0, color: "#6f63c6" },
-  ];
+  const bands = BAND_SPECS.map((band) => ({ ...band, power: 0 }));
   for (const point of spectrum) {
     const band = bands.find((candidate) => point.f >= candidate.min && point.f < candidate.max);
     if (band) band.power += point.power;
@@ -501,6 +585,9 @@ function analyzeSignals(eeg, meanSignal, firingHistory, c4History, params) {
   const dominantFreq = dominantBandPoints.reduce((best, point) => (point.power > best.power ? point : best), dominantBandPoints[0] || spectrum[0]).f;
 
   const fc = computeFc(eeg, start);
+  const fcByBand = computeBandFcs(eeg, start, fs);
+  const fcStats = { broadband: meanAbsFc(fc) };
+  for (const [band, matrix] of Object.entries(fcByBand)) fcStats[band] = meanAbsFc(matrix);
   let fcSum = 0;
   let fcCount = 0;
   for (let i = 0; i < fc.length; i += 1) {
@@ -513,11 +600,14 @@ function analyzeSignals(eeg, meanSignal, firingHistory, c4History, params) {
   const finalFr = firingHistory[firingHistory.length - 1] || 0;
   const finalC4 = c4History[c4History.length - 1] || 0;
   const rms = Math.sqrt(centered.reduce((sum, value) => sum + value * value, 0) / Math.max(1, centered.length));
+  const alphaEnvelopeCv = computeAlphaEnvelopeCv(centered, fs);
   const warnings = buildWarnings({ params, meanFc: fcSum / Math.max(1, fcCount), rms, firingError: finalFr - params.target });
   return {
     spectrum,
     bands,
     fc,
+    fcByBand,
+    fcStats,
     meanFc: fcSum / Math.max(1, fcCount),
     dominantBand,
     dominantFreq,
@@ -525,6 +615,7 @@ function analyzeSignals(eeg, meanSignal, firingHistory, c4History, params) {
     finalFr,
     finalC4,
     rms,
+    alphaEnvelopeCv,
     warnings,
     fs,
   };
@@ -596,6 +687,86 @@ function computeFc(eeg, start) {
   return fc;
 }
 
+function computeFcFromSignals(signals) {
+  const n = signals.length;
+  const fc = Array.from({ length: n }, () => Array(n).fill(0));
+  const means = signals.map((signal) => signal.reduce((sum, value) => sum + value, 0) / Math.max(1, signal.length));
+  const vars = signals.map((signal, node) => signal.reduce((sum, value) => sum + (value - means[node]) ** 2, 0));
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j < n; j += 1) {
+      if (i === j) {
+        fc[i][j] = 1;
+      } else {
+        let cov = 0;
+        for (let k = 0; k < signals[i].length; k += 1) cov += (signals[i][k] - means[i]) * (signals[j][k] - means[j]);
+        fc[i][j] = cov / Math.sqrt(Math.max(1e-9, vars[i] * vars[j]));
+      }
+    }
+  }
+  return fc;
+}
+
+function computeBandFcs(eeg, start, fs) {
+  const fcByBand = {};
+  for (const band of BAND_SPECS) {
+    const signals = eeg.map((nodeSignal) => reconstructBand(Array.from(nodeSignal.slice(start)), fs, band.min, band.max));
+    fcByBand[band.id] = computeFcFromSignals(signals);
+  }
+  return fcByBand;
+}
+
+function reconstructBand(signal, fs, fmin, fmax) {
+  const centered = signal.slice();
+  const avg = centered.reduce((sum, value) => sum + value, 0) / Math.max(1, centered.length);
+  for (let i = 0; i < centered.length; i += 1) centered[i] -= avg;
+  const out = new Array(centered.length).fill(0);
+  const freqs = [];
+  for (let f = Math.ceil(fmin); f < fmax; f += 1) freqs.push(f);
+  for (const f of freqs) {
+    let re = 0;
+    let im = 0;
+    for (let i = 0; i < centered.length; i += 1) {
+      const angle = (2 * Math.PI * f * i) / fs;
+      re += centered[i] * Math.cos(angle);
+      im -= centered[i] * Math.sin(angle);
+    }
+    const a = (2 * re) / Math.max(1, centered.length);
+    const b = (-2 * im) / Math.max(1, centered.length);
+    for (let i = 0; i < centered.length; i += 1) {
+      const angle = (2 * Math.PI * f * i) / fs;
+      out[i] += a * Math.cos(angle) + b * Math.sin(angle);
+    }
+  }
+  return out;
+}
+
+function meanAbsFc(matrix) {
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < matrix.length; i += 1) {
+    for (let j = i + 1; j < matrix.length; j += 1) {
+      sum += Math.abs(matrix[i][j]);
+      count += 1;
+    }
+  }
+  return sum / Math.max(1, count);
+}
+
+function computeAlphaEnvelopeCv(signal, fs) {
+  const alpha = reconstructBand(signal, fs, 8, 13).map(Math.abs);
+  const window = Math.max(5, Math.floor(fs * 0.35));
+  const smoothed = alpha.map((_, i) => {
+    const a = Math.max(0, i - window);
+    const b = Math.min(alpha.length, i + window + 1);
+    let sum = 0;
+    for (let j = a; j < b; j += 1) sum += alpha[j];
+    return sum / Math.max(1, b - a);
+  });
+  const mean = smoothed.reduce((sum, value) => sum + value, 0) / Math.max(1, smoothed.length);
+  const variance = smoothed.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, smoothed.length);
+  return Math.sqrt(variance) / Math.max(1e-9, mean);
+}
+
 function rerun(immediate = false) {
   updateOutputs();
   window.clearTimeout(debounce);
@@ -615,21 +786,55 @@ function rerun(immediate = false) {
 }
 
 function updateMetrics(result) {
+  const fcBand = controls.fcBand.value;
+  const shownFc = getFcStat(result, fcBand);
+  const shownBaselineFc = baselineResult ? getFcStat(baselineResult, fcBand) : null;
+  const quality = classifyRun(result);
+  document.querySelector(".quality-metric")?.setAttribute("data-quality", quality.kind);
+  metrics.quality.textContent = quality.label;
+  metrics.qualityDelta.textContent = quality.detail;
   metrics.dominant.textContent = `${result.dominantBand.key} ${result.dominantFreq.toFixed(0)} Hz`;
-  metrics.fc.textContent = result.meanFc.toFixed(2);
+  metrics.fc.textContent = shownFc.toFixed(2);
   metrics.error.textContent = `${result.firingError >= 0 ? "+" : ""}${result.firingError.toFixed(2)} Hz`;
   metrics.inhibition.textContent = result.finalC4.toFixed(1);
+  metrics.alphaEnvelope.textContent = result.alphaEnvelopeCv.toFixed(2);
+  metrics.alphaEnvelopeDelta.textContent = "slow alpha CV";
   if (baselineResult) {
     metrics.dominantDelta.textContent = `balanced ${baselineResult.dominantBand.key} ${baselineResult.dominantFreq.toFixed(0)} Hz`;
-    metrics.fcDelta.textContent = formatDelta(result.meanFc - baselineResult.meanFc, 2);
+    metrics.fcDelta.textContent = `${fcBandLabel(fcBand)} ${formatDelta(shownFc - shownBaselineFc, 2)}`;
     metrics.errorDelta.textContent = `${Math.abs(result.firingError).toFixed(2)} Hz from target`;
     metrics.inhibitionDelta.textContent = formatDelta(result.finalC4 - baselineResult.finalC4, 1);
+    metrics.alphaEnvelopeDelta.textContent = formatDelta(result.alphaEnvelopeCv - baselineResult.alphaEnvelopeCv, 2);
   }
   const density = result.network.matrix.flat().filter((value) => value > 0.08).length / (result.params.nodes * (result.params.nodes - 1));
   const topologyLabel = fields.topology.options[fields.topology.selectedIndex]?.textContent || "Network";
   metrics.network.textContent = `${topologyLabel} · ${Math.round(density * 100)}%`;
+  controls.baseline.textContent = baselineName;
+  controls.spectrum.textContent = `${FIDELITY[result.params.fidelity]?.label || "Lesson"} · ${result.fs.toFixed(0)} Hz`;
   updateInsights(result, density);
   updateWarnings(result.warnings);
+}
+
+function getFcStat(result, band) {
+  return result.fcStats?.[band] ?? result.meanFc;
+}
+
+function getFcMatrix(result) {
+  const band = controls.fcBand.value;
+  return band === "broadband" ? result.fc : result.fcByBand?.[band] || result.fc;
+}
+
+function fcBandLabel(band) {
+  if (band === "broadband") return "Broadband";
+  return BAND_SPECS.find((candidate) => candidate.id === band)?.name || band;
+}
+
+function classifyRun(result) {
+  if (result.warnings.some((warning) => warning.includes("far from target") || warning.includes("ceiling"))) {
+    return { kind: "unstable", label: "Unstable", detail: `${result.warnings.length} warning${result.warnings.length === 1 ? "" : "s"}` };
+  }
+  if (result.warnings.length) return { kind: "watch", label: "Watch", detail: `${result.warnings.length} caveat${result.warnings.length === 1 ? "" : "s"}` };
+  return { kind: "stable", label: "Stable", detail: "teaching range" };
 }
 
 function formatDelta(value, digits) {
@@ -776,6 +981,22 @@ function renderSpectrum(result) {
   });
   ctx.stroke();
 
+  if (baselineResult && baselineResult !== result) {
+    const baselineMax = Math.max(...baselineResult.spectrum.map((point) => point.power)) || 1;
+    ctx.strokeStyle = "rgba(21, 32, 34, 0.34)";
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    baselineResult.spectrum.forEach((point, i) => {
+      const x = left + (point.f / 45) * plotW;
+      const y = height - bottom - Math.sqrt(point.power / baselineMax) * plotH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   for (const band of result.bands) {
     const x1 = left + (band.min / 45) * plotW;
     const x2 = left + (band.max / 45) * plotW;
@@ -841,7 +1062,8 @@ function fcColor(value) {
 function renderFc(result) {
   const { ctx, width, height } = setupCanvas(canvases.fc);
   clear(ctx, width, height);
-  const n = result.fc.length;
+  const matrix = getFcMatrix(result);
+  const n = matrix.length;
   const pad = 26;
   const size = Math.min(width - pad * 2, height - pad * 2);
   const x0 = (width - size) / 2;
@@ -849,7 +1071,7 @@ function renderFc(result) {
   const cell = size / n;
   for (let i = 0; i < n; i += 1) {
     for (let j = 0; j < n; j += 1) {
-      ctx.fillStyle = fcColor(result.fc[i][j]);
+      ctx.fillStyle = fcColor(matrix[i][j]);
       ctx.fillRect(x0 + j * cell, y0 + i * cell, Math.ceil(cell), Math.ceil(cell));
     }
   }
@@ -882,6 +1104,18 @@ function renderBands(result) {
     ctx.fillStyle = "#667376";
     ctx.font = "12px Inter, system-ui, sans-serif";
     ctx.fillText(`${Math.round(band.share * 100)}%`, x + 4, top + plotH - h - 8);
+    if (baselineResult && baselineResult !== result) {
+      const baselineBand = baselineResult.bands.find((candidate) => candidate.id === band.id);
+      if (baselineBand) {
+        const y = top + plotH - plotH * baselineBand.share;
+        ctx.strokeStyle = "rgba(21, 32, 34, 0.42)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + barW, y);
+        ctx.stroke();
+      }
+    }
   });
 }
 
@@ -1025,20 +1259,120 @@ document.querySelectorAll("[data-preset]").forEach((button) => {
 });
 
 Object.values(fields).forEach((field) => {
-  field.addEventListener("input", () => rerun(false));
-  field.addEventListener("change", () => rerun(false));
+  field.addEventListener("input", () => {
+    clearActivePreset();
+    rerun(false);
+  });
+  field.addEventListener("change", () => {
+    clearActivePreset();
+    rerun(false);
+  });
+});
+
+controls.fcBand.addEventListener("change", () => {
+  if (!latest) return;
+  updateMetrics(latest);
+  renderFc(latest);
+  setInspector(`FC view: ${fcBandLabel(controls.fcBand.value)} correlation matrix. Mean FC now reflects the selected band.`);
 });
 
 document.getElementById("rerunButton").addEventListener("click", () => rerun(true));
+document.getElementById("pinBaselineButton").addEventListener("click", () => {
+  if (!latest) return;
+  baselineResult = latest;
+  baselineName = "Pinned baseline";
+  updateMetrics(latest);
+  renderAll(latest);
+  setInspector("Pinned the current run as the comparison baseline.");
+});
+
+document.getElementById("copyStateButton").addEventListener("click", () => {
+  const url = shareUrl();
+  copyToClipboard(url).then((copied) => {
+    setInspector(copied ? "Copied a shareable URL for the current state." : `Share URL: ${url}`);
+  });
+});
+
+document.getElementById("exportStateButton").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(serializeState(), null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "eeg-dementias-model-lab-state.json";
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setInspector("Exported current parameters and custom network state as JSON.");
+});
+
+document.getElementById("importStateButton").addEventListener("click", () => controls.importStateFile.click());
+controls.importStateFile.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      applyState(JSON.parse(String(reader.result)));
+      setInspector("Imported saved model state.");
+    } catch {
+      setInspector("Import failed: the selected file was not a valid saved state.");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
+});
+
+document.getElementById("resetAllButton").addEventListener("click", () => {
+  customNetwork = null;
+  selectedNode = null;
+  undoStack = [];
+  redoStack = [];
+  updateNetworkHistoryButtons();
+  baselineResult = null;
+  baselineName = "Balanced baseline";
+  controls.fcBand.value = "broadband";
+  setActivePreset("balanced");
+  setParams(PRESETS.balanced);
+  rerun(true);
+  setInspector("Reset all parameters, comparison state, and network edits.");
+});
+
 document.getElementById("resetNetworkButton").addEventListener("click", () => {
+  pushNetworkUndo();
   customNetwork = null;
   selectedNode = null;
   if (fields.topology.value === "custom") fields.topology.value = "reduced-sc";
   rerun(true);
 });
 
+document.getElementById("undoNetworkButton").addEventListener("click", () => {
+  if (!undoStack.length) return;
+  const params = getParams();
+  const current = customNetwork || latest?.network?.rawMatrix || presetMatrix(params.nodes, params.topology);
+  redoStack.push(cloneMatrix(resizeMatrix(current, params.nodes)));
+  restoreNetwork(undoStack.pop());
+  setInspector("Undid the last network edit.");
+  updateNetworkHistoryButtons();
+});
+
+document.getElementById("redoNetworkButton").addEventListener("click", () => {
+  if (!redoStack.length) return;
+  const params = getParams();
+  const current = customNetwork || latest?.network?.rawMatrix || presetMatrix(params.nodes, params.topology);
+  undoStack.push(cloneMatrix(resizeMatrix(current, params.nodes)));
+  restoreNetwork(redoStack.pop());
+  setInspector("Redid the network edit.");
+  updateNetworkHistoryButtons();
+});
+
+controls.lessonSelect.addEventListener("change", updateLessonNote);
+document.getElementById("lessonStartButton").addEventListener("click", () => applyLessonSide("start"));
+document.getElementById("lessonContrastButton").addEventListener("click", () => applyLessonSide("contrast"));
+
 canvases.network.addEventListener("click", (event) => {
-  if (!fields.editNetwork.checked || !latest) return;
+  if (!latest) return;
+  if (!fields.editNetwork.checked) {
+    inspectNetwork(event);
+    return;
+  }
   const rect = canvases.network.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
@@ -1053,6 +1387,13 @@ canvases.network.addEventListener("click", (event) => {
   selectedNode = null;
   rerun(true);
 });
+
+canvases.spectrum.addEventListener("click", (event) => inspectSpectrum(event));
+canvases.bands.addEventListener("click", (event) => inspectBands(event));
+canvases.fc.addEventListener("click", (event) => inspectFc(event));
+canvases.homeostasis.addEventListener("click", (event) => inspectHomeostasis(event));
+canvases.trace.addEventListener("click", (event) => inspectTrace(event));
+canvases.model.addEventListener("click", () => setInspector("Local circuit: alpha and gamma subpopulations are mixed into pyramidal, excitatory, and inhibitory state variables; C4 is the adaptive inhibitory gain."));
 
 function nearestNode(positions, x, y) {
   let best = null;
@@ -1069,15 +1410,192 @@ function nearestNode(positions, x, y) {
   return bestDistance < 0.06 ? best : null;
 }
 
+function setActivePreset(key) {
+  document.querySelectorAll("[data-preset]").forEach((item) => item.classList.toggle("is-active", item.dataset.preset === key));
+}
+
+function clearActivePreset() {
+  document.querySelectorAll("[data-preset]").forEach((item) => item.classList.remove("is-active"));
+}
+
+function applyScenario(params, presetKey = null) {
+  if (presetKey) setActivePreset(presetKey);
+  else clearActivePreset();
+  setParams(params);
+  rerun(true);
+}
+
+function updateLessonNote() {
+  controls.lessonNote.textContent = LESSONS[controls.lessonSelect.value]?.note || "";
+}
+
+function applyLessonSide(side) {
+  const lesson = LESSONS[controls.lessonSelect.value];
+  if (!lesson) return;
+  applyScenario(lesson[side], null);
+  setInspector(`${side === "start" ? "Loaded lesson start" : "Loaded lesson contrast"}: ${lesson.note}`);
+}
+
+function serializeState() {
+  return {
+    version: 2,
+    params: getParams(),
+    fcBand: controls.fcBand.value,
+    customNetwork: customNetwork ? cloneMatrix(customNetwork) : null,
+  };
+}
+
+function applyState(state) {
+  if (!state?.params) throw new Error("Missing params");
+  customNetwork = state.customNetwork ? cloneMatrix(state.customNetwork) : null;
+  selectedNode = null;
+  controls.fcBand.value = state.fcBand || "broadband";
+  clearActivePreset();
+  setParams(state.params);
+  rerun(true);
+}
+
+function shareUrl() {
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(serializeState()))));
+  const url = new URL(window.location.href);
+  url.searchParams.set("state", encoded);
+  return url.toString();
+}
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back below when browsers deny clipboard permission on local files/dev servers.
+    }
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.left = "-9999px";
+  document.body.appendChild(field);
+  field.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  field.remove();
+  return copied;
+}
+
+function loadStateFromUrl() {
+  const encoded = new URLSearchParams(window.location.search).get("state");
+  if (!encoded) return false;
+  try {
+    applyState(JSON.parse(decodeURIComponent(escape(atob(encoded)))));
+    return true;
+  } catch {
+    setInspector("Could not load state from URL; using Balanced preset.");
+    return false;
+  }
+}
+
+function setInspector(text) {
+  controls.inspector.textContent = text;
+}
+
+function canvasPoint(event, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top, w: rect.width, h: rect.height };
+}
+
+function inspectSpectrum(event) {
+  if (!latest) return;
+  const p = canvasPoint(event, canvases.spectrum);
+  const left = 46;
+  const right = 18;
+  const f = Math.max(1, Math.min(45, ((p.x - left) / Math.max(1, p.w - left - right)) * 45));
+  const point = latest.spectrum.reduce((best, item) => (Math.abs(item.f - f) < Math.abs(best.f - f) ? item : best), latest.spectrum[0]);
+  const band = BAND_SPECS.find((candidate) => point.f >= candidate.min && point.f < candidate.max);
+  setInspector(`Spectrum: ${point.f.toFixed(0)} Hz sits in ${band?.name || "unbanded"} power. The dashed line, when visible, is the pinned comparison baseline.`);
+}
+
+function inspectBands(event) {
+  if (!latest) return;
+  const p = canvasPoint(event, canvases.bands);
+  const left = 40;
+  const right = 20;
+  const gap = 12;
+  const barW = (p.w - left - right - gap * (latest.bands.length - 1)) / latest.bands.length;
+  const index = Math.floor((p.x - left) / (barW + gap));
+  const band = latest.bands[Math.max(0, Math.min(latest.bands.length - 1, index))];
+  setInspector(`${band.name} band: ${Math.round(band.share * 100)}% of modeled 1-45 Hz power in this run.`);
+}
+
+function inspectFc(event) {
+  if (!latest) return;
+  const matrix = getFcMatrix(latest);
+  const p = canvasPoint(event, canvases.fc);
+  const pad = 26;
+  const size = Math.min(p.w - pad * 2, p.h - pad * 2);
+  const x0 = (p.w - size) / 2;
+  const y0 = (p.h - size) / 2;
+  const i = Math.floor((p.y - y0) / (size / matrix.length));
+  const j = Math.floor((p.x - x0) / (size / matrix.length));
+  if (i < 0 || j < 0 || i >= matrix.length || j >= matrix.length) return;
+  setInspector(`${fcBandLabel(controls.fcBand.value)} FC: region ${i + 1} to ${j + 1} correlation is ${matrix[i][j].toFixed(2)}.`);
+}
+
+function inspectHomeostasis(event) {
+  if (!latest) return;
+  const p = canvasPoint(event, canvases.homeostasis);
+  const left = 48;
+  const right = 22;
+  const index = Math.max(0, Math.min(latest.firingHistory.length - 1, Math.round(((p.x - left) / Math.max(1, p.w - left - right)) * (latest.firingHistory.length - 1))));
+  const time = (index / Math.max(1, latest.firingHistory.length - 1)) * latest.params.duration;
+  setInspector(`Homeostasis at ${time.toFixed(1)} s: firing ${latest.firingHistory[index].toFixed(2)} Hz, C4 inhibition ${latest.c4History[index].toFixed(1)}.`);
+}
+
+function inspectTrace(event) {
+  if (!latest) return;
+  const p = canvasPoint(event, canvases.trace);
+  const left = 52;
+  const right = 20;
+  const index = Math.max(0, Math.min(latest.meanSignal.length - 1, Math.round(((p.x - left) / Math.max(1, p.w - left - right)) * (latest.meanSignal.length - 1))));
+  const time = (index / Math.max(1, latest.meanSignal.length - 1)) * latest.params.duration;
+  setInspector(`EEG-like trace at ${time.toFixed(1)} s: network-average signal ${latest.meanSignal[index].toFixed(3)} mV-equivalent.`);
+}
+
+function inspectNetwork(event) {
+  if (!latest) return;
+  const p = canvasPoint(event, canvases.network);
+  const hit = nearestNode(latest.network.positions, p.x / p.w, p.y / p.h);
+  if (hit === null) {
+    setInspector("Structural network: edge thickness shows SC weight after integrity scaling; node color reflects whether firing is above target.");
+    return;
+  }
+  const degree = latest.network.matrix[hit].filter((value) => value > 0.08).length;
+  const strength = latest.network.matrix[hit].reduce((sum, value) => sum + value, 0);
+  setInspector(`Region ${hit + 1}: ${degree} visible edges, structural strength ${strength.toFixed(2)}.`);
+}
+
 window.addEventListener("resize", () => {
   if (latest) renderAll(latest);
 });
 
 window.ModelLab = {
+  get latest() {
+    return latest;
+  },
   presets: PRESETS,
   simulate,
   presetMatrix,
+  serializeState,
 };
 
-setParams(PRESETS.balanced);
-rerun(true);
+updateNetworkHistoryButtons();
+updateLessonNote();
+if (!loadStateFromUrl()) {
+  setParams(PRESETS.balanced);
+  rerun(true);
+}

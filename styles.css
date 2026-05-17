@@ -89,10 +89,13 @@ h2 {
 .runbar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.icon-button {
+.icon-button,
+.text-button {
   border: 1px solid var(--line);
   color: var(--ink);
   background: #fff;
@@ -109,7 +112,15 @@ h2 {
   font-size: 1.25rem;
 }
 
+.text-button {
+  min-width: 86px;
+  padding: 0 11px;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
 .icon-button:hover,
+.text-button:hover,
 .segmented button:hover {
   transform: translateY(-1px);
 }
@@ -234,6 +245,30 @@ input[type="checkbox"] {
   background: #f8fbfa;
 }
 
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+  background: #f4f7f6;
+}
+
+.button-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.button-pair .secondary-button {
+  margin-top: 10px;
+}
+
+.lesson-note {
+  min-height: 56px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
 .main-stage {
   min-width: 0;
   padding: 24px;
@@ -242,7 +277,7 @@ input[type="checkbox"] {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  grid-template-columns: repeat(6, minmax(118px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -271,6 +306,18 @@ input[type="checkbox"] {
   display: block;
   font-size: clamp(1.1rem, 2vw, 1.55rem);
   font-variant-numeric: tabular-nums;
+}
+
+.quality-metric[data-quality="stable"] strong {
+  color: var(--teal-dark);
+}
+
+.quality-metric[data-quality="watch"] strong {
+  color: #774c00;
+}
+
+.quality-metric[data-quality="unstable"] strong {
+  color: #9e2f22;
 }
 
 .metric small {
@@ -322,6 +369,13 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+.view-heading select {
+  width: 130px;
+  min-height: 30px;
+  font-size: 0.78rem;
+  font-weight: 680;
+}
+
 canvas {
   display: block;
   width: 100%;
@@ -370,6 +424,15 @@ canvas {
   font-weight: 780;
 }
 
+.inspector {
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  background: #fbfcfc;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .warnings {
   display: flex;
   flex-wrap: wrap;
@@ -408,6 +471,10 @@ canvas {
     display: grid;
     grid-template-columns: repeat(2, minmax(250px, 1fr));
     gap: 18px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
   }
 
   .panel-section {

@@ -8,10 +8,19 @@ This app is a teaching-oriented, browser-native approximation. It keeps the main
 - structural long-range coupling
 - stochastic pyramidal input
 - inhibitory synaptic plasticity through C4
-- EEG-like readouts, spectral power, and functional connectivity
-- editable teaching network presets, including reduced real SC, small-world, modular, hub, split-module, random sparse, and custom edge edits
+- EEG-like readouts, spectral power, broadband and band-limited functional connectivity
+- editable teaching network presets, including reduced real SC, small-world, modular, hub, split-module, random sparse, and custom edge edits with undo/redo
 
 For browser responsiveness it runs a reduced network size in JavaScript rather than the full 90-region NumPy/Numba simulation.
+
+## Learning Features
+
+- Guided lessons compare paired model states for coupling, plasticity, network damage, and rhythm shifts.
+- A pinned baseline overlays the spectrum and band-power plots so parameter changes can be read as contrasts.
+- Run-quality checks flag parameter regimes that leave the intended teaching range.
+- Plot inspectors explain clicked spectrum points, power bands, FC cells, structural nodes, traces, and homeostasis trajectories.
+- Fidelity modes trade speed against smoother estimates by changing burn-in and sampling density.
+- Share links and JSON export/import preserve parameters and custom network edits.
 
 ## Teaching Presets
 
@@ -25,6 +34,10 @@ The built-in presets were selected from a parameter sweep of the interactive mod
 - **Overdrive**: intentionally unstable/homeostatically unbalanced example that triggers a warning.
 
 These presets are meant for learning and hypothesis-building. They should not be treated as calibrated clinical or subject-level simulations.
+
+## Scientific Scope
+
+The app is designed to teach parameter effects, not diagnose dementia or reproduce a subject-specific EEG. It preserves the qualitative structure of the source model while simplifying the integration, connectivity size, and signal analysis enough to keep interaction immediate in the browser.
 
 ## Run
 
