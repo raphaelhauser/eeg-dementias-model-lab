@@ -1258,6 +1258,20 @@ document.querySelectorAll("[data-preset]").forEach((button) => {
   });
 });
 
+document.querySelectorAll(".info-tip").forEach((tip) => {
+  const openTip = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    tip.focus();
+  };
+  tip.addEventListener("pointerdown", openTip);
+  tip.addEventListener("mousedown", openTip);
+  tip.addEventListener("click", openTip);
+  tip.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") tip.blur();
+  });
+});
+
 Object.values(fields).forEach((field) => {
   field.addEventListener("input", () => {
     clearActivePreset();

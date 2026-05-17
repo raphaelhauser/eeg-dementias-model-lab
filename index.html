@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>EEG Dementias Model Lab</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=info-tooltips" />
   </head>
   <body>
     <div class="app-shell">
@@ -41,25 +41,25 @@
           <section class="panel-section">
             <h2>Network</h2>
             <label class="slider-row" for="coupling">
-              <span title="Long-range pyramidal-pyramidal coupling term K in the source equation.">Global coupling K</span>
+              <span class="label-with-info" data-tooltip="Long-range pyramidal-pyramidal coupling term K in the source equation. Higher K lets regions entrain each other more strongly.">Global coupling K <span class="info-tip" tabindex="0" aria-label="Long-range pyramidal-pyramidal coupling term K in the source equation. Higher K lets regions entrain each other more strongly.">i</span></span>
               <output id="couplingValue"></output>
             </label>
             <input id="coupling" type="range" min="0" max="0.9" step="0.01" />
 
             <label class="slider-row" for="integrity">
-              <span title="Global scale applied to structural connectivity weights.">Structural integrity</span>
+              <span class="label-with-info" data-tooltip="Global scale applied to structural connectivity weights. Lower values approximate disconnection or damaged white-matter coupling.">Structural integrity <span class="info-tip" tabindex="0" aria-label="Global scale applied to structural connectivity weights. Lower values approximate disconnection or damaged white-matter coupling.">i</span></span>
               <output id="integrityValue"></output>
             </label>
             <input id="integrity" type="range" min="0.25" max="1.15" step="0.01" />
 
             <label class="slider-row" for="nodes">
-              <span title="Reduced teaching network size. The original scripts use larger AAL/subject matrices.">Regions</span>
+              <span class="label-with-info" data-tooltip="Reduced teaching network size. The original scripts use larger AAL or subject matrices; this browser model keeps fewer regions for fast interaction.">Regions <span class="info-tip" tabindex="0" aria-label="Reduced teaching network size. The original scripts use larger AAL or subject matrices; this browser model keeps fewer regions for fast interaction.">i</span></span>
               <output id="nodesValue"></output>
             </label>
             <input id="nodes" type="range" min="4" max="14" step="1" />
 
             <label class="field-row" for="topology">
-              <span title="Structural matrix used in the long-range coupling term.">Network preset</span>
+              <span class="label-with-info" data-tooltip="Structural matrix used in the long-range coupling term: reduced empirical SC, abstract graph motifs, or your custom edited network.">Network preset <span class="info-tip" tabindex="0" aria-label="Structural matrix used in the long-range coupling term: reduced empirical SC, abstract graph motifs, or your custom edited network.">i</span></span>
               <select id="topology">
                 <option value="reduced-sc">Reduced SC</option>
                 <option value="small-world">Small-world</option>
@@ -72,7 +72,7 @@
             </label>
 
             <label class="switch-row">
-              <span title="When enabled, click two nodes in the structural network to toggle their edge.">Edit edges</span>
+              <span class="label-with-info" data-tooltip="When enabled, click two nodes in the structural network to toggle their edge. Use undo and redo to compare graph edits.">Edit edges <span class="info-tip" tabindex="0" aria-label="When enabled, click two nodes in the structural network to toggle their edge. Use undo and redo to compare graph edits.">i</span></span>
               <input id="editNetwork" type="checkbox" />
             </label>
 
@@ -86,19 +86,19 @@
           <section class="panel-section">
             <h2>Local Masses</h2>
             <label class="slider-row" for="drive">
-              <span title="Basal input p to the pyramidal population.">Basal input p</span>
+              <span class="label-with-info" data-tooltip="Basal input p to the pyramidal population. Increasing p pushes local masses toward higher firing before homeostatic inhibition responds.">Basal input p <span class="info-tip" tabindex="0" aria-label="Basal input p to the pyramidal population. Increasing p pushes local masses toward higher firing before homeostatic inhibition responds.">i</span></span>
               <output id="driveValue"></output>
             </label>
             <input id="drive" type="range" min="170" max="300" step="1" />
 
             <label class="slider-row" for="alpha">
-              <span title="Mixture weight between slower alpha-like and faster gamma-like subpopulations.">Alpha fraction</span>
+              <span class="label-with-info" data-tooltip="Mixture weight between slower alpha-like and faster gamma-like subpopulations. Higher values favor slower alpha structure.">Alpha fraction <span class="info-tip" tabindex="0" aria-label="Mixture weight between slower alpha-like and faster gamma-like subpopulations. Higher values favor slower alpha structure.">i</span></span>
               <output id="alphaValue"></output>
             </label>
             <input id="alpha" type="range" min="0.05" max="0.95" step="0.01" />
 
             <label class="slider-row" for="noise">
-              <span title="Stochastic drive added to excitatory state derivatives.">Noise σ</span>
+              <span class="label-with-info" data-tooltip="Stochastic drive added to excitatory state derivatives. Noise can desynchronize regions or reveal fragile rhythmic regimes.">Noise σ <span class="info-tip" tabindex="0" aria-label="Stochastic drive added to excitatory state derivatives. Noise can desynchronize regions or reveal fragile rhythmic regimes.">i</span></span>
               <output id="noiseValue"></output>
             </label>
             <input id="noise" type="range" min="0" max="1.8" step="0.01" />
@@ -107,18 +107,18 @@
           <section class="panel-section">
             <h2>Plasticity</h2>
             <label class="switch-row">
-              <span title="Enables C4 inhibitory gain adaptation toward target firing.">Inhibitory plasticity</span>
+              <span class="label-with-info" data-tooltip="Enables C4 inhibitory gain adaptation toward target firing. This represents a simplified inhibitory homeostasis mechanism.">Inhibitory plasticity <span class="info-tip" tabindex="0" aria-label="Enables C4 inhibitory gain adaptation toward target firing. This represents a simplified inhibitory homeostasis mechanism.">i</span></span>
               <input id="plasticity" type="checkbox" />
             </label>
 
             <label class="slider-row" for="target">
-              <span title="Target pyramidal firing rate for inhibitory plasticity.">Target firing rate</span>
+              <span class="label-with-info" data-tooltip="Target pyramidal firing rate for inhibitory plasticity. C4 adapts to reduce the gap between modeled firing and this target.">Target firing rate <span class="info-tip" tabindex="0" aria-label="Target pyramidal firing rate for inhibitory plasticity. C4 adapts to reduce the gap between modeled firing and this target.">i</span></span>
               <output id="targetValue"></output>
             </label>
             <input id="target" type="range" min="0.8" max="4.8" step="0.1" />
 
             <label class="slider-row" for="tau">
-              <span title="Plasticity time constant; larger values adapt inhibition more slowly.">Plasticity τ</span>
+              <span class="label-with-info" data-tooltip="Plasticity time constant. Larger τ adapts inhibition more slowly, so firing can remain off target for longer.">Plasticity τ <span class="info-tip" tabindex="0" aria-label="Plasticity time constant. Larger tau adapts inhibition more slowly, so firing can remain off target for longer.">i</span></span>
               <output id="tauValue"></output>
             </label>
             <input id="tau" type="range" min="0.4" max="8" step="0.1" />
@@ -127,7 +127,7 @@
           <section class="panel-section">
             <h2>Simulation</h2>
             <label class="field-row" for="fidelity">
-              <span title="Controls burn-in and sampling density for speed versus smoother estimates.">Fidelity</span>
+              <span class="label-with-info" data-tooltip="Controls burn-in and sampling density. Fast is responsive; high confidence gives smoother spectra and FC estimates.">Fidelity <span class="info-tip" tabindex="0" aria-label="Controls burn-in and sampling density. Fast is responsive; high confidence gives smoother spectra and FC estimates.">i</span></span>
               <select id="fidelity">
                 <option value="fast">Fast preview</option>
                 <option value="lesson" selected>Lesson</option>
@@ -136,13 +136,13 @@
             </label>
 
             <label class="slider-row" for="duration">
-              <span title="Seconds of post-burn-in signal used for plots and metrics.">Duration</span>
+              <span class="label-with-info" data-tooltip="Seconds of post-burn-in signal used for plots and metrics. Longer runs stabilize estimates but take more time.">Duration <span class="info-tip" tabindex="0" aria-label="Seconds of post-burn-in signal used for plots and metrics. Longer runs stabilize estimates but take more time.">i</span></span>
               <output id="durationValue"></output>
             </label>
             <input id="duration" type="range" min="3" max="12" step="1" />
 
             <label class="slider-row" for="seed">
-              <span title="Random seed controlling stochastic drive.">Seed</span>
+              <span class="label-with-info" data-tooltip="Random seed controlling stochastic drive. Change it to test whether an effect is robust to noise realization.">Seed <span class="info-tip" tabindex="0" aria-label="Random seed controlling stochastic drive. Change it to test whether an effect is robust to noise realization.">i</span></span>
               <output id="seedValue"></output>
             </label>
             <input id="seed" type="range" min="0" max="99" step="1" />
@@ -151,7 +151,7 @@
           <section class="panel-section">
             <h2>Guided Lessons</h2>
             <label class="field-row" for="lessonSelect">
-              <span>Lesson</span>
+              <span class="label-with-info" data-tooltip="Loads paired scenarios designed to isolate one concept, then compare the start and contrast states in the plots.">Lesson <span class="info-tip" tabindex="0" aria-label="Loads paired scenarios designed to isolate one concept, then compare the start and contrast states in the plots.">i</span></span>
               <select id="lessonSelect">
                 <option value="coupling">Coupling</option>
                 <option value="plasticity">Plasticity</option>
@@ -288,6 +288,6 @@
       </main>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=info-tooltips"></script>
   </body>
 </html>

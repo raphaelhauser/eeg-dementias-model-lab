@@ -193,6 +193,92 @@ h2 {
   color: var(--ink);
 }
 
+.label-with-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.info-tip {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid #a9bfbc;
+  border-radius: 50%;
+  background: #f4fbfa;
+  color: var(--teal-dark);
+  cursor: help;
+  font-size: 0.67rem;
+  font-weight: 820;
+  line-height: 1;
+  user-select: none;
+}
+
+.info-tip:focus {
+  outline: 2px solid rgba(22, 127, 118, 0.28);
+  outline-offset: 2px;
+}
+
+.label-with-info::before,
+.label-with-info::after {
+  position: absolute;
+  left: 0;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.label-with-info::before {
+  content: "";
+  top: calc(100% + 3px);
+  width: 10px;
+  height: 10px;
+  margin-left: 6px;
+  border-left: 1px solid #b8c6c8;
+  border-top: 1px solid #b8c6c8;
+  background: #ffffff;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.label-with-info::after {
+  content: attr(data-tooltip);
+  top: calc(100% + 8px);
+  width: min(260px, calc(100vw - 44px));
+  padding: 11px 12px;
+  border: 1px solid #b8c6c8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 14px 38px rgba(20, 32, 34, 0.16);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 560;
+  line-height: 1.38;
+}
+
+.label-with-info:hover::before,
+.label-with-info:hover::after,
+.label-with-info:focus-within::before,
+.label-with-info:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.label-with-info:hover::before,
+.label-with-info:focus-within::before {
+  transform: rotate(45deg) translateY(0);
+}
+
 output {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
