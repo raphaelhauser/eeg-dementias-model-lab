@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>EEG Dementias Model Lab</title>
-    <link rel="stylesheet" href="styles.css?v=info-tooltips" />
+    <link rel="stylesheet" href="styles.css?v=quality-upgrade-4" />
   </head>
   <body>
     <div class="app-shell">
@@ -33,7 +33,7 @@
               <button data-preset="theta" type="button">Theta sync</button>
               <button data-preset="alphaHub" type="button">Alpha hub</button>
               <button data-preset="gammaLocal" type="button">Local gamma</button>
-              <button data-preset="fragmented" type="button">Fragmented beta</button>
+              <button data-preset="fragmented" type="button">Fragmented mixed</button>
               <button data-preset="overdrive" type="button">Overdrive</button>
             </div>
           </section>
@@ -126,15 +126,6 @@
 
           <section class="panel-section">
             <h2>Simulation</h2>
-            <label class="field-row" for="fidelity">
-              <span class="label-with-info" data-tooltip="Controls burn-in and sampling density. Fast is responsive; high confidence gives smoother spectra and FC estimates.">Fidelity <span class="info-tip" tabindex="0" aria-label="Controls burn-in and sampling density. Fast is responsive; high confidence gives smoother spectra and FC estimates.">i</span></span>
-              <select id="fidelity">
-                <option value="fast">Fast preview</option>
-                <option value="lesson" selected>Lesson</option>
-                <option value="deep">High confidence</option>
-              </select>
-            </label>
-
             <label class="slider-row" for="duration">
               <span class="label-with-info" data-tooltip="Seconds of post-burn-in signal used for plots and metrics. Longer runs stabilize estimates but take more time.">Duration <span class="info-tip" tabindex="0" aria-label="Seconds of post-burn-in signal used for plots and metrics. Longer runs stabilize estimates but take more time.">i</span></span>
               <output id="durationValue"></output>
@@ -288,6 +279,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=info-tooltips"></script>
+    <script src="app.js?v=quality-upgrade-4"></script>
   </body>
 </html>

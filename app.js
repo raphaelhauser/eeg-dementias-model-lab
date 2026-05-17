@@ -10,8 +10,8 @@ const MODEL = {
   r1: 0.56,
   r2: 0.56,
   dt: 0.001,
-  downsamp: 4,
-  burnIn: 2.5,
+  downsamp: 2,
+  burnIn: 5,
 };
 
 MODEL.C1 = MODEL.C;
@@ -72,12 +72,12 @@ const PRESETS = {
     editNetwork: false,
   },
   alphaHub: {
-    coupling: 0.36,
+    coupling: 0.12,
     integrity: 0.92,
     nodes: 12,
     topology: "hub",
-    drive: 205,
-    alpha: 0.88,
+    drive: 220,
+    alpha: 0.95,
     noise: 0.55,
     plasticity: true,
     target: 2.5,
@@ -133,12 +133,6 @@ const PRESETS = {
   },
 };
 
-const FIDELITY = {
-  fast: { label: "Fast preview", burnIn: 1.2, downsamp: 6 },
-  lesson: { label: "Lesson", burnIn: MODEL.burnIn, downsamp: MODEL.downsamp },
-  deep: { label: "High confidence", burnIn: 4, downsamp: 3 },
-};
-
 const BAND_SPECS = [
   { key: "δ", id: "delta", name: "delta", min: 1, max: 4, color: "#2c6fb7" },
   { key: "θ", id: "theta", name: "theta", min: 4, max: 8, color: "#167f76" },
@@ -159,7 +153,7 @@ const LESSONS = {
     contrast: { ...PRESETS.overdrive, plasticity: true, tau: 1.2 },
   },
   network: {
-    note: "Compare Alpha hub with Fragmented beta to see how hubs and split modules change FC without changing the local equations.",
+    note: "Compare Alpha hub with Fragmented mixed to see how hubs and split modules change FC without changing the local equations.",
     start: PRESETS.alphaHub,
     contrast: PRESETS.fragmented,
   },
@@ -176,7 +170,6 @@ const fields = {
   nodes: document.getElementById("nodes"),
   topology: document.getElementById("topology"),
   editNetwork: document.getElementById("editNetwork"),
-  fidelity: document.getElementById("fidelity"),
   drive: document.getElementById("drive"),
   alpha: document.getElementById("alpha"),
   noise: document.getElementById("noise"),
@@ -285,7 +278,6 @@ function getParams() {
     nodes: Number(fields.nodes.value),
     topology: fields.topology.value,
     editNetwork: fields.editNetwork.checked,
-    fidelity: fields.fidelity.value,
     drive: Number(fields.drive.value),
     alpha: Number(fields.alpha.value),
     noise: Number(fields.noise.value),
@@ -305,7 +297,6 @@ function setParams(params) {
     if (key === "plasticity" || key === "editNetwork") fields[key].checked = value;
     else fields[key].value = value;
   });
-  if (!params.fidelity) fields.fidelity.value = "lesson";
   updateOutputs();
 }
 
@@ -462,13 +453,12 @@ function simulate(params) {
   const n = params.nodes;
   const rand = seededRandom(params.seed);
   const network = buildNetwork(n, params.integrity, params.topology);
-  const fidelity = FIDELITY[params.fidelity] || FIDELITY.lesson;
-  const sampleEvery = fidelity.downsamp;
+  const sampleEvery = MODEL.downsamp;
   const steps = Math.max(1, Math.floor(params.duration / MODEL.dt));
-  const burnSteps = Math.floor(fidelity.burnIn / MODEL.dt);
+  const burnSteps = Math.floor(MODEL.burnIn / MODEL.dt);
   const totalSteps = burnSteps + steps;
   const samples = Math.floor(steps / sampleEvery);
-  const runParams = { ...params, fidelity: params.fidelity || "lesson", sampleEvery, burnIn: fidelity.burnIn };
+  const runParams = { ...params, sampleEvery, burnIn: MODEL.burnIn };
   const y = Array.from({ length: 13 }, () => Array(n).fill(0));
   const init = [0.131, 0.171, 0.343, 0.21, 3.07, 2.96, 0.131, 0.171, 0.343, 0.21, 3.07, 2.96, MODEL.C4_0];
   for (let k = 0; k < 13; k += 1) {
@@ -773,13 +763,13 @@ function rerun(immediate = false) {
   metrics.status.textContent = "Queued";
   const run = () => {
     metrics.status.textContent = "Running";
-    window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
       latest = simulate(getParams());
       if (!baselineResult) baselineResult = simulate(PRESETS.balanced);
       updateMetrics(latest);
       renderAll(latest);
       metrics.status.textContent = "Complete";
-    });
+    }, 20);
   };
   if (immediate) run();
   else debounce = window.setTimeout(run, 180);
@@ -810,7 +800,7 @@ function updateMetrics(result) {
   const topologyLabel = fields.topology.options[fields.topology.selectedIndex]?.textContent || "Network";
   metrics.network.textContent = `${topologyLabel} · ${Math.round(density * 100)}%`;
   controls.baseline.textContent = baselineName;
-  controls.spectrum.textContent = `${FIDELITY[result.params.fidelity]?.label || "Lesson"} · ${result.fs.toFixed(0)} Hz`;
+  controls.spectrum.textContent = `High-quality · ${result.fs.toFixed(0)} Hz`;
   updateInsights(result, density);
   updateWarnings(result.warnings);
 }

@@ -19,18 +19,18 @@ For browser responsiveness it runs a reduced network size in JavaScript rather t
 - A pinned baseline overlays the spectrum and band-power plots so parameter changes can be read as contrasts.
 - Run-quality checks flag parameter regimes that leave the intended teaching range.
 - Plot inspectors explain clicked spectrum points, power bands, FC cells, structural nodes, traces, and homeostasis trajectories.
-- Fidelity modes trade speed against smoother estimates by changing burn-in and sampling density.
+- The simulator always uses the higher-quality browser path, with longer burn-in and denser sampling for smoother spectra and FC estimates.
 - Share links and JSON export/import preserve parameters and custom network edits.
 
 ## Teaching Presets
 
 The built-in presets were selected from a parameter sweep of the interactive model to expose qualitatively different regimes:
 
-- **Balanced**: source-like reduced-SC baseline with moderate beta activity.
+- **Balanced**: source-like reduced-SC baseline with moderate alpha activity and modest FC.
 - **Theta sync**: high functional connectivity with theta-dominant synchronization.
 - **Alpha hub**: hub topology with alpha-dominant activity and intermediate FC.
 - **Local gamma**: uncoupled local fast activity with low FC.
-- **Fragmented beta**: split-module topology with low FC and beta activity.
+- **Fragmented mixed**: split-module topology with low FC and a mixed low-frequency spectrum.
 - **Overdrive**: intentionally unstable/homeostatically unbalanced example that triggers a warning.
 
 These presets are meant for learning and hypothesis-building. They should not be treated as calibrated clinical or subject-level simulations.
